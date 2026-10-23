@@ -13,7 +13,7 @@ La capture d’écran nécessite une origine sécurisée (HTTPS ou `localhost`).
 
 ## Publication sur GitHub Pages
 
-Le build utilise `/ios-webscreenshare/` comme chemin de base. Si le dépôt porte un autre nom, modifiez `base` dans `vite.config.ts` pour `/NOM-DU-DEPOT/`. Poussez ensuite sur `main`. Le workflow `.github/workflows/deploy.yml` active GitHub Pages, construit et publie le site automatiquement.
+Le build utilise `/ios-webscreenshare/` comme chemin de base. Si le dépôt porte un autre nom, modifiez `base` dans `vite.config.ts` pour `/NOM-DU-DEPOT/`. Dans **Settings → Pages**, choisissez **GitHub Actions** comme source. Poussez ensuite sur `main`; le workflow `.github/workflows/deploy.yml` construit et publie le site automatiquement.
 
 ## Limites réseau et confidentialité
 
