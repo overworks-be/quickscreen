@@ -1,5 +1,7 @@
 # QuickScreen
 
+[Open QuickScreen](https://overworks-be.github.io/ios-webscreenshare/)
+
 Share your screen live between two browsers without an account or an application server. PeerJS Cloud handles signaling; the video stream travels directly between devices when their networks allow it.
 
 ## Development
