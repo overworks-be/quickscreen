@@ -25,6 +25,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+        env:
+          VITE_METERED_APP: ${{ vars.VITE_METERED_APP }}
+          VITE_METERED_CREDENTIAL_API_KEY: ${{ vars.VITE_METERED_CREDENTIAL_API_KEY }}
+          VITE_WEBRTC_FORCE_RELAY: ${{ vars.VITE_WEBRTC_FORCE_RELAY || 'false' }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
