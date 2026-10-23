@@ -19,4 +19,4 @@ Le build utilise `/ios-webscreenshare/` comme chemin de base. Si le dépôt port
 
 Les salons sont éphémères et utilisent un code aléatoire de huit caractères; aucune vidéo n’est enregistrée. PeerJS Cloud assure uniquement la signalisation. La connexion vidéo tente STUN pour établir un chemin pair à pair. Certains réseaux et pare-feu exigent un relais TURN, qui n’est pas inclus dans ce MVP. Dans ces réseaux, la connexion peut échouer.
 
-Le partage s’arrête au bout de 30 secondes; changez `ROOM_DURATION_SECONDS` dans `src/main.ts` pour ajuster cette limite. Un diffuseur et un spectateur sont pris en charge par salon. Safari/iOS et les navigateurs mobiles n’exposent pas tous la capture d’écran: QuickScreen vérifie `getDisplayMedia()` et n’imite jamais une capture indisponible.
+Le partage reste actif jusqu’à son arrêt manuel par le diffuseur ou jusqu’à l’arrêt de la capture dans le navigateur. Un diffuseur et un spectateur sont pris en charge par salon. Safari/iOS et les navigateurs mobiles n’exposent pas tous la capture d’écran: QuickScreen vérifie `getDisplayMedia()` et n’imite jamais une capture indisponible.

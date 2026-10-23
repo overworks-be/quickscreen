@@ -1,7 +1,6 @@
 import Peer, { type DataConnection, type MediaConnection } from 'peerjs'
 import './style.css'
 
-const ROOM_DURATION_SECONDS = 30
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 const app = document.querySelector<HTMLDivElement>('#app')!
 
@@ -38,7 +37,7 @@ function roomUrl(code: string) { return `${location.origin}${location.pathname}#
 
 function hostView(code: string, status: string, sharing = false) {
   const link = roomUrl(code)
-  shell(`<section class="room"><a class="back-link" href="#/">← Accueil</a><div class="room-heading"><div><div class="eyebrow"><i></i> VOTRE SALON</div><h1>Prêt à partager ?</h1><p class="intro">Envoyez ce lien à la personne qui doit voir votre écran.</p></div><div class="room-code"><span>CODE DU SALON</span><strong>${code}</strong></div></div><div class="share-link"><span>${link}</span><button id="copy" class="icon-button" aria-label="Copier le lien">⧉</button></div><div class="action-row"><button id="share" class="button secondary">Partager le lien <span>↗</span></button><button id="start" class="button primary" ${sharing ? 'disabled' : ''}>${sharing ? 'Partage en cours' : 'Partager mon écran'} <span>◉</span></button></div><div class="status-line"><i class="status-dot ${sharing ? 'active' : ''}"></i><span id="status">${status}</span></div><div class="preview-wrap ${sharing ? '' : 'hidden'}"><video id="preview" autoplay muted playsinline></video><div class="preview-label"><i></i> VOUS PARTAGEZ VOTRE ÉCRAN <b id="timer">00:00</b></div><button class="stop-button" id="stop">Arrêter le partage</button></div><p class="compat">${!navigator.mediaDevices?.getDisplayMedia ? 'La capture d’écran n’est pas disponible dans ce navigateur. Essayez Chrome, Edge, Firefox ou Safari récent sur ordinateur.' : 'Le partage s’arrête automatiquement après 30 secondes.'}</p></section>`)
+  shell(`<section class="room"><a class="back-link" href="#/">← Accueil</a><div class="room-heading"><div><div class="eyebrow"><i></i> VOTRE SALON</div><h1>Prêt à partager ?</h1><p class="intro">Envoyez ce lien à la personne qui doit voir votre écran.</p></div><div class="room-code"><span>CODE DU SALON</span><strong>${code}</strong></div></div><div class="share-link"><span>${link}</span><button id="copy" class="icon-button" aria-label="Copier le lien">⧉</button></div><div class="action-row"><button id="share" class="button secondary">Partager le lien <span>↗</span></button><button id="start" class="button primary" ${sharing ? 'disabled' : ''}>${sharing ? 'Partage en cours' : 'Partager mon écran'} <span>◉</span></button></div><div class="status-line"><i class="status-dot ${sharing ? 'active' : ''}"></i><span id="status">${status}</span></div><div class="preview-wrap ${sharing ? '' : 'hidden'}"><video id="preview" autoplay muted playsinline></video><div class="preview-label"><i></i> VOUS PARTAGEZ VOTRE ÉCRAN <b id="timer">00:00</b></div><button class="stop-button" id="stop">Arrêter le partage</button></div>${!navigator.mediaDevices?.getDisplayMedia ? '<p class="compat">La capture d’écran n’est pas disponible dans ce navigateur. Essayez Chrome, Edge, Firefox ou Safari récent sur ordinateur.</p>' : ''}</section>`)
   document.querySelector('#copy')!.addEventListener('click', () => copyLink(link))
   document.querySelector('#share')!.addEventListener('click', () => shareLink(link))
   document.querySelector('#start')!.addEventListener('click', startScreenShare)
@@ -81,7 +80,6 @@ async function startScreenShare() {
       const elapsed = Math.max(0, Math.floor((Date.now() - (room?.startedAt ?? Date.now())) / 1000))
       const timer = document.querySelector('#timer')
       if (timer) timer.textContent = `00:${String(elapsed).padStart(2, '0')}`
-      if (elapsed >= ROOM_DURATION_SECONDS) stopSharing('Partage terminé après 30 secondes.')
     }, 250)
     connectViewerStream()
   } catch (error) {
