@@ -1,22 +1,22 @@
 # QuickScreen
 
-Partage d’écran WebRTC entre deux navigateurs, sans compte ni serveur applicatif. PeerJS Cloud fournit la signalisation; le flux vidéo circule directement entre appareils lorsque leur réseau le permet.
+Share your screen live between two browsers without an account or an application server. PeerJS Cloud handles signaling; the video stream travels directly between devices when their networks allow it.
 
-## Développement
+## Development
 
 ```sh
 npm install
 npm run dev
 ```
 
-La capture d’écran nécessite une origine sécurisée (HTTPS ou `localhost`). Le diffuseur doit accepter explicitement la demande du navigateur. Le spectateur n’a besoin ni de caméra ni de microphone.
+Screen capture requires a secure origin (HTTPS or `localhost`). The person sharing must explicitly approve the browser’s capture request. Viewers do not need a camera or microphone.
 
-## Publication sur GitHub Pages
+## Deploy to GitHub Pages
 
-Le build utilise `/ios-webscreenshare/` comme chemin de base. Si le dépôt porte un autre nom, modifiez `base` dans `vite.config.ts` pour `/NOM-DU-DEPOT/`. Dans **Settings → Pages**, choisissez **GitHub Actions** comme source. Poussez ensuite sur `main`; le workflow `.github/workflows/deploy.yml` construit et publie le site automatiquement.
+The build uses `/ios-webscreenshare/` as its base path. If the repository has a different name, update `base` in `vite.config.ts` to `/REPOSITORY-NAME/`. In **Settings → Pages**, select **GitHub Actions** as the source. Then push to `main`; the `.github/workflows/deploy.yml` workflow builds and deploys the site automatically.
 
-## Limites réseau et confidentialité
+## Network and privacy limits
 
-Les salons sont éphémères et utilisent un code aléatoire de huit caractères; aucune vidéo n’est enregistrée. PeerJS Cloud assure uniquement la signalisation. La connexion vidéo tente STUN pour établir un chemin pair à pair. Certains réseaux et pare-feu exigent un relais TURN, qui n’est pas inclus dans ce MVP. Dans ces réseaux, la connexion peut échouer.
+Rooms are temporary and use a random eight-character code. No video is recorded. PeerJS Cloud handles signaling only. The video connection uses STUN to try to establish a peer-to-peer path. Some networks and firewalls require a TURN relay, which is not included in this MVP; connections may fail on those networks.
 
-Le partage reste actif jusqu’à son arrêt manuel par le diffuseur ou jusqu’à l’arrêt de la capture dans le navigateur. Un diffuseur et un spectateur sont pris en charge par salon. Safari/iOS et les navigateurs mobiles n’exposent pas tous la capture d’écran: QuickScreen vérifie `getDisplayMedia()` et n’imite jamais une capture indisponible.
+Sharing remains active until the host stops it manually or ends capture in the browser. Each room supports one host and one viewer. Safari/iOS and mobile browsers do not all support screen capture; QuickScreen checks for `getDisplayMedia()` and never simulates unsupported capture.
