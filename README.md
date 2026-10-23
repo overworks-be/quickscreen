@@ -2,6 +2,8 @@
 
 [Open QuickScreen](https://overworks-be.github.io/ios-webscreenshare/)
 
+The interface is available in English, French, and Dutch. Choose a language from the selector in the top-right corner; your choice is saved in this browser. English is used by default.
+
 Share your screen live between two browsers without an account or an application server. PeerJS Cloud handles signaling; the video stream travels directly between devices when their networks allow it.
 
 ## Development

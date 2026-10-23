@@ -1,16 +1,38 @@
 import Peer, { type DataConnection, type MediaConnection } from 'peerjs'
 import { loadPresenterIceConfiguration, loadVisitorIceConfiguration, testMeteredSettings, type IceConfiguration, type MeteredSettings } from './services/iceServers'
 import { readPresenterSettings, resetPresenterSettings, savePresenterSettings } from './services/presenterSettings'
+import { getLanguage, localize, setLanguage, type Language } from './i18n'
 import './style.css'
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 const app = document.querySelector<HTMLDivElement>('#app')!
+const i18nObserver = new MutationObserver((mutations) => {
+  for (const mutation of mutations) {
+    if (mutation.type === 'attributes') localize(mutation.target as Element)
+    else if (mutation.type === 'characterData') {
+      const parent = mutation.target.parentElement
+      if (parent) localize(parent)
+    } else {
+      mutation.addedNodes.forEach((node) => {
+        if (node instanceof Element) localize(node)
+        else if (node.parentElement) localize(node.parentElement)
+      })
+    }
+  }
+})
+i18nObserver.observe(app, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['aria-label', 'placeholder', 'title'] })
 
 type Room = { code: string; peer?: Peer; role: 'host' | 'viewer'; ice?: IceConfiguration; settings?: MeteredSettings; rememberSettings?: boolean; settingsFeedback?: string; configuring?: boolean; stream?: MediaStream; viewerId?: string; call?: MediaConnection; data?: DataConnection; timer?: number; retryTimer?: number; diagnosticsTimer?: number; retries?: number; startedAt?: number }
 let room: Room | undefined
 
 function shell(content: string) {
-  app.innerHTML = `<main class="page"><header class="brand"><a href="#/" aria-label="QuickScreen accueil"><span class="brand-mark">Q</span><span>QuickScreen</span></a><span class="brand-note">Partage d’écran instantané</span></header>${content}<footer>Une connexion directe entre navigateurs. Aucune vidéo n’est enregistrée.</footer></main>`
+  app.innerHTML = `<main class="page"><header class="brand"><a href="#/" aria-label="QuickScreen accueil"><span class="brand-mark">Q</span><span>QuickScreen</span></a><span class="brand-note">Partage d’écran instantané</span><label class="language-picker"><span class="visually-hidden">Language</span><select id="language" aria-label="Language"><option value="en" ${getLanguage() === 'en' ? 'selected' : ''}>EN</option><option value="fr" ${getLanguage() === 'fr' ? 'selected' : ''}>FR</option><option value="nl" ${getLanguage() === 'nl' ? 'selected' : ''}>NL</option></select></label></header>${content}<footer>Une connexion directe entre navigateurs. Aucune vidéo n’est enregistrée.</footer></main>`
+  localize(app)
+  document.querySelector<HTMLSelectElement>('#language')!.addEventListener('change', (event) => {
+    const value = (event.currentTarget as HTMLSelectElement).value as Language
+    setLanguage(value)
+    localize(app)
+  })
 }
 
 function iceNoticeMarkup() {
