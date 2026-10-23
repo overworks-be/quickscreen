@@ -1,11 +1,12 @@
 import Peer, { type DataConnection, type MediaConnection } from 'peerjs'
-import { loadIceConfiguration, type IceConfiguration } from './services/iceServers'
+import { loadPresenterIceConfiguration, loadVisitorIceConfiguration, testMeteredSettings, type IceConfiguration, type MeteredSettings } from './services/iceServers'
+import { readPresenterSettings, resetPresenterSettings, savePresenterSettings } from './services/presenterSettings'
 import './style.css'
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 const app = document.querySelector<HTMLDivElement>('#app')!
 
-type Room = { code: string; peer?: Peer; role: 'host' | 'viewer'; ice?: IceConfiguration; stream?: MediaStream; viewerId?: string; call?: MediaConnection; data?: DataConnection; timer?: number; retryTimer?: number; diagnosticsTimer?: number; retries?: number; startedAt?: number }
+type Room = { code: string; peer?: Peer; role: 'host' | 'viewer'; ice?: IceConfiguration; settings?: MeteredSettings; rememberSettings?: boolean; settingsFeedback?: string; configuring?: boolean; stream?: MediaStream; viewerId?: string; call?: MediaConnection; data?: DataConnection; timer?: number; retryTimer?: number; diagnosticsTimer?: number; retries?: number; startedAt?: number }
 let room: Room | undefined
 
 function shell(content: string) {
@@ -20,6 +21,20 @@ function diagnosticsMarkup() {
   return import.meta.env.DEV && room?.ice
     ? '<details class="diagnostics"><summary>WebRTC diagnostics</summary><pre id="diagnostics">Waiting for ICE statistics…</pre></details>'
     : ''
+}
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!)
+}
+
+function presenterSettingsMarkup() {
+  if (room?.role !== 'host') return ''
+  const appName = escapeHtml(room.settings?.appName ?? '')
+  const apiKey = escapeHtml(room.settings?.credentialApiKey ?? '')
+  const checked = room.rememberSettings ? 'checked' : ''
+  const disabled = room.configuring || room.stream ? 'disabled' : ''
+  const feedback = room.settingsFeedback ? `<p class="turn-feedback" id="turn-feedback">${escapeHtml(room.settingsFeedback)}</p>` : '<p class="turn-feedback" id="turn-feedback"></p>'
+  return `<details class="turn-settings" ${room.settings ? '' : 'open'}><summary>Configuration TURN <span>Présentateur uniquement</span></summary><p>Relais Metered facultatif pour les réseaux qui ne peuvent pas se connecter directement. Le visiteur n’a besoin d’aucun réglage.</p><label for="metered-app">Domaine Metered</label><input id="metered-app" type="text" autocomplete="off" placeholder="your-app-name" value="${appName}" ${disabled}><label for="metered-key">Credential API Key</label><input id="metered-key" type="password" autocomplete="new-password" placeholder="TURN credential API key" value="${apiKey}" ${disabled}><label class="remember-setting"><input id="remember-metered" type="checkbox" ${checked} ${disabled}> Mémoriser sur ce navigateur</label><div class="turn-actions"><button class="button secondary" id="test-metered" ${disabled}>Tester la configuration</button><button class="button primary" id="save-metered" ${disabled}>Enregistrer</button><button class="button secondary" id="reset-metered" ${disabled}>Réinitialiser</button></div>${feedback}<small>La clé est conservée dans le stockage du navigateur. N’utilisez jamais la Secret Key du compte Metered.</small></details>`
 }
 
 function home(message = '') {
@@ -48,10 +63,12 @@ function roomUrl(code: string) { return `${location.origin}${location.pathname}#
 
 function hostView(code: string, status: string, sharing = false) {
   const link = roomUrl(code)
-  shell(`<section class="room"><a class="back-link" href="#/">← Accueil</a><div class="room-heading"><div><div class="eyebrow"><i></i> VOTRE SALON</div><h1>Prêt à partager ?</h1><p class="intro">Envoyez ce lien à la personne qui doit voir votre écran.</p></div><div class="room-code"><span>CODE DU SALON</span><strong>${code}</strong></div></div><div class="share-link"><span>${link}</span><button id="copy" class="icon-button" aria-label="Copier le lien">⧉</button></div><div class="action-row"><button id="share" class="button secondary">Partager le lien <span>↗</span></button><button id="start" class="button primary" ${sharing ? 'disabled' : ''}>${sharing ? 'Partage en cours' : 'Partager mon écran'} <span>◉</span></button></div><div class="status-line"><i class="status-dot ${sharing ? 'active' : ''}"></i><span id="status">${status}</span></div>${iceNoticeMarkup()}<div class="preview-wrap ${sharing ? '' : 'hidden'}"><video id="preview" autoplay muted playsinline></video><div class="preview-label"><i></i> VOUS PARTAGEZ VOTRE ÉCRAN <b id="timer">00:00</b></div><button class="stop-button" id="stop">Arrêter le partage</button></div>${sharing ? diagnosticsMarkup() : ''}${!navigator.mediaDevices?.getDisplayMedia ? '<p class="compat">La capture d’écran n’est pas disponible dans ce navigateur. Essayez Chrome, Edge, Firefox ou Safari récent sur ordinateur.</p>' : ''}</section>`)
+  const startDisabled = sharing || !room?.peer || room.configuring
+  shell(`<section class="room"><a class="back-link" href="#/">← Accueil</a><div class="room-heading"><div><div class="eyebrow"><i></i> VOTRE SALON</div><h1>Prêt à partager ?</h1><p class="intro">Envoyez ce lien à la personne qui doit voir votre écran.</p></div><div class="room-code"><span>CODE DU SALON</span><strong>${code}</strong></div></div><div class="share-link"><span>${link}</span><button id="copy" class="icon-button" aria-label="Copier le lien">⧉</button></div><div class="action-row"><button id="share" class="button secondary">Partager le lien <span>↗</span></button><button id="start" class="button primary" ${startDisabled ? 'disabled' : ''}>${sharing ? 'Partage en cours' : 'Partager mon écran'} <span>◉</span></button></div><div class="status-line"><i class="status-dot ${sharing ? 'active' : ''}"></i><span id="status">${status}</span></div>${iceNoticeMarkup()}${presenterSettingsMarkup()}<div class="preview-wrap ${sharing ? '' : 'hidden'}"><video id="preview" autoplay muted playsinline></video><div class="preview-label"><i></i> VOUS PARTAGEZ VOTRE ÉCRAN <b id="timer">00:00</b></div><button class="stop-button" id="stop">Arrêter le partage</button></div>${sharing ? diagnosticsMarkup() : ''}${!navigator.mediaDevices?.getDisplayMedia ? '<p class="compat">La capture d’écran n’est pas disponible dans ce navigateur. Essayez Chrome, Edge, Firefox ou Safari récent sur ordinateur.</p>' : ''}</section>`)
   document.querySelector('#copy')!.addEventListener('click', () => copyLink(link))
   document.querySelector('#share')!.addEventListener('click', () => shareLink(link))
   document.querySelector('#start')!.addEventListener('click', startScreenShare)
+  wirePresenterSettings()
   if (sharing && room?.stream) {
     const video = document.querySelector<HTMLVideoElement>('#preview')!
     video.srcObject = room.stream
@@ -59,8 +76,60 @@ function hostView(code: string, status: string, sharing = false) {
   }
 }
 
+function wirePresenterSettings() {
+  if (room?.role !== 'host') return
+  const testButton = document.querySelector<HTMLButtonElement>('#test-metered')
+  const saveButton = document.querySelector<HTMLButtonElement>('#save-metered')
+  const resetButton = document.querySelector<HTMLButtonElement>('#reset-metered')
+  testButton?.addEventListener('click', async () => {
+    const settings = readSettingsForm()
+    setSettingsFeedback('Test de la configuration Metered…')
+    testButton.disabled = true
+    const result = await testMeteredSettings(settings)
+    if (result.ok) setSettingsFeedback(`Configuration valide (${result.serverCount} serveurs ICE).`)
+    else setSettingsFeedback(result.message)
+    if (testButton.isConnected && !room?.configuring && !room?.stream) testButton.disabled = false
+  })
+  saveButton?.addEventListener('click', async () => {
+    const currentRoom = room
+    if (!currentRoom || currentRoom.role !== 'host') return
+    const settings = readSettingsForm()
+    if (!settings.appName || !settings.credentialApiKey) {
+      setSettingsFeedback('Indique le domaine Metered et la Credential API Key, ou clique sur Réinitialiser.')
+      return
+    }
+    const remember = document.querySelector<HTMLInputElement>('#remember-metered')?.checked ?? false
+    const stored = savePresenterSettings(settings, remember)
+    currentRoom.settings = settings
+    currentRoom.rememberSettings = remember
+    currentRoom.settingsFeedback = stored ? 'Configuration enregistrée. Mise à jour de la connexion…' : 'Stockage navigateur indisponible. La configuration restera en mémoire dans cette page.'
+    await initializePresenterPeer(currentRoom, 'Mise à jour de la configuration TURN…')
+  })
+  resetButton?.addEventListener('click', async () => {
+    const currentRoom = room
+    if (!currentRoom || currentRoom.role !== 'host') return
+    const stored = resetPresenterSettings()
+    currentRoom.settings = undefined
+    currentRoom.rememberSettings = false
+    currentRoom.settingsFeedback = stored ? 'Configuration Metered effacée. STUN seul sera utilisé.' : 'Impossible d’effacer le stockage navigateur.'
+    await initializePresenterPeer(currentRoom, 'Retour à la configuration STUN…')
+  })
+}
+
+function readSettingsForm(): MeteredSettings {
+  return {
+    appName: document.querySelector<HTMLInputElement>('#metered-app')?.value.trim() ?? '',
+    credentialApiKey: document.querySelector<HTMLInputElement>('#metered-key')?.value.trim() ?? '',
+  }
+}
+
+function setSettingsFeedback(message: string) {
+  const feedback = document.querySelector<HTMLElement>('#turn-feedback')
+  if (feedback) feedback.textContent = message
+}
+
 function viewerView(code: string, status: string, state: 'waiting' | 'live' | 'ended' | 'error' = 'waiting') {
-  shell(`<section class="room viewer-room"><a class="back-link" href="#/">← Accueil</a><div class="viewer-heading"><div class="eyebrow"><i></i> SALON ${code}</div><h1>${state === 'live' ? 'Vous êtes connecté.' : state === 'ended' ? 'Le partage est terminé.' : state === 'error' ? 'Impossible de rejoindre.' : 'Le salon est ouvert.'}</h1><p id="viewer-status" class="intro">${status}</p></div>${iceNoticeMarkup()}<div class="viewer-screen ${state === 'live' ? 'is-live' : ''}"><video id="remote" autoplay playsinline></video><div id="waiting" class="waiting-state ${state === 'live' ? 'hidden' : ''}"><div class="waiting-icon">${state === 'ended' ? '✓' : state === 'error' ? '!' : '<span></span>'}</div><strong>${state === 'live' ? '' : state === 'ended' ? 'Session terminée' : state === 'error' ? 'Salon indisponible' : 'En attente du partage d’écran…'}</strong><small>${state === 'waiting' ? 'Cette page se mettra à jour dès que le partage commence.' : ''}</small></div><div class="live-label ${state === 'live' ? '' : 'hidden'}"><i></i> EN DIRECT</div></div>${state === 'live' ? diagnosticsMarkup() : ''}${state === 'error' ? '<button id="retry" class="button secondary new-room">Try again <span>↻</span></button>' : '<a class="button secondary new-room" href="#/">Créer un nouveau salon <span>↗</span></a>'}</section>`)
+  shell(`<section class="room viewer-room"><a class="back-link" href="#/">← Accueil</a><div class="viewer-heading"><div class="eyebrow"><i></i> SALON ${code}</div><h1>${state === 'live' ? 'Vous êtes connecté.' : state === 'ended' ? 'Le partage est terminé.' : state === 'error' ? 'Impossible de rejoindre.' : 'Le salon est ouvert.'}</h1><p id="viewer-status" class="intro">${status}</p></div>${iceNoticeMarkup()}<div class="viewer-screen ${state === 'live' ? 'is-live' : ''}"><video id="remote" autoplay playsinline></video><div id="waiting" class="waiting-state ${state === 'live' ? 'hidden' : ''}"><div class="waiting-icon">${state === 'ended' ? '✓' : state === 'error' ? '!' : '<span></span>'}</div><strong>${state === 'live' ? '' : state === 'ended' ? 'Session terminée' : state === 'error' ? 'Salon indisponible' : 'En attente du partage d’écran…'}</strong><small>${state === 'waiting' ? 'Cette page se mettra à jour dès que le partage commence.' : ''}</small></div><div class="live-label ${state === 'live' ? '' : 'hidden'}"><i></i> EN DIRECT</div></div>${state === 'live' ? diagnosticsMarkup() : ''}${state === 'error' ? '<button id="retry" class="button secondary new-room">Réessayer <span>↻</span></button>' : '<a class="button secondary new-room" href="#/">Créer un nouveau salon <span>↗</span></a>'}</section>`)
   document.querySelector('#retry')?.addEventListener('click', () => enterRoom(code, false))
 }
 
@@ -105,7 +174,7 @@ function connectViewerStream() {
   room.call = call
   monitorIceFailure(call, () => {
     const status = document.querySelector('#status')
-    if (status) status.textContent = 'WebRTC connection failed. Check TURN connectivity and ask the viewer to retry.'
+    if (status) status.textContent = 'Impossible d’établir la connexion WebRTC. Vérifie le relais TURN ou demande au visiteur de réessayer.'
   })
   startCallDiagnostics(call)
   call.on('close', () => { if (room) { room.call = undefined; clearDiagnostics() } })
@@ -147,23 +216,52 @@ function cleanup() {
 
 function enterRoom(code: string, host: boolean) {
   cleanup()
-  const currentRoom: Room = { code, role: host ? 'host' : 'viewer' }
+  const savedSettings = host ? readPresenterSettings() : undefined
+  const currentRoom: Room = {
+    code,
+    role: host ? 'host' : 'viewer',
+    settings: savedSettings?.settings,
+    rememberSettings: savedSettings?.remember,
+    configuring: host,
+  }
   room = currentRoom
-  if (host) hostView(code, 'Preparing the secure connection…')
-  else viewerView(code, 'Preparing the secure connection…')
-
-  void loadIceConfiguration().then((ice) => {
-    if (room !== currentRoom) return
+  if (host) hostView(code, 'Préparation de la connexion sécurisée…')
+  else {
+    viewerView(code, 'Connexion au salon…')
+    const ice = loadVisitorIceConfiguration()
     currentRoom.ice = ice
-    currentRoom.peer = newPeer(host ? `quickscreen-${code}` : undefined, ice.rtcConfiguration)
-    if (host) startHostPeer(currentRoom)
-    else startViewerPeer(currentRoom)
-  }).catch(() => {
-    if (room === currentRoom) {
-      if (host) hostView(code, 'Could not prepare WebRTC. Please try again.')
-      else viewerView(code, 'Could not prepare WebRTC. Please try again.', 'error')
-    }
-  })
+    currentRoom.peer = newPeer(undefined, ice.rtcConfiguration)
+    startViewerPeer(currentRoom)
+  }
+  if (host) void initializePresenterPeer(currentRoom, 'Préparation de la connexion sécurisée…')
+}
+
+async function initializePresenterPeer(currentRoom: Room, status: string) {
+  if (room !== currentRoom || currentRoom.role !== 'host') return
+  currentRoom.configuring = true
+  hostView(currentRoom.code, status)
+  const forceRelay = import.meta.env.VITE_WEBRTC_FORCE_RELAY?.trim().toLowerCase() === 'true'
+  const ice = await loadPresenterIceConfiguration(currentRoom.settings, forceRelay)
+  if (room !== currentRoom) return
+
+  const previousCall = currentRoom.call
+  const previousData = currentRoom.data
+  const previousPeer = currentRoom.peer
+  currentRoom.call = undefined
+  currentRoom.data = undefined
+  currentRoom.peer = undefined
+  currentRoom.viewerId = undefined
+  previousCall?.close()
+  previousData?.close()
+  previousPeer?.destroy()
+  clearDiagnostics()
+
+  currentRoom.ice = ice
+  currentRoom.configuring = false
+  await new Promise((resolve) => window.setTimeout(resolve, 250))
+  if (room !== currentRoom) return
+  currentRoom.peer = newPeer(`quickscreen-${currentRoom.code}`, ice.rtcConfiguration)
+  startHostPeer(currentRoom)
 }
 
 function startHostPeer(currentRoom: Room) {
@@ -221,7 +319,7 @@ function startViewerPeer(currentRoom: Room) {
     currentRoom.call = call
     call.answer()
     monitorIceFailure(call, () => {
-      if (room === currentRoom) viewerView(code, 'WebRTC connection failed. Check network connectivity and try again.', 'error')
+      if (room === currentRoom) viewerView(code, 'Impossible d’établir la connexion. Votre réseau ou celui de votre interlocuteur empêche peut-être le partage.', 'error')
     })
     startCallDiagnostics(call)
     call.on('stream', (stream) => {
@@ -233,8 +331,14 @@ function startViewerPeer(currentRoom: Room) {
       video.play().catch(() => {})
       stream.getTracks().forEach((track) => track.addEventListener('ended', () => { if (room === currentRoom) { clearDiagnostics(); viewerView(code, 'Le partage est terminé.', 'ended') } }))
     })
-    call.on('close', () => { if (room === currentRoom) { clearDiagnostics(); viewerView(code, 'Le partage est terminé.', 'ended') } })
-    call.on('error', () => { if (room === currentRoom) { clearDiagnostics(); viewerView(code, 'La connexion vidéo a échoué. Check network connectivity and try again.', 'error') } })
+    call.on('close', () => {
+      if (room !== currentRoom) return
+      clearDiagnostics()
+      const failed = call.peerConnection?.iceConnectionState === 'failed'
+      if (failed) viewerView(code, 'Impossible d’établir la connexion. Votre réseau ou celui de votre interlocuteur empêche peut-être le partage.', 'error')
+      else viewerView(code, 'Le partage est terminé.', 'ended')
+    })
+    call.on('error', () => { if (room === currentRoom) { clearDiagnostics(); viewerView(code, 'La connexion vidéo a échoué. Vérifiez le réseau et réessayez.', 'error') } })
   })
   peer.on('error', () => {
     if (room !== currentRoom) return
@@ -257,6 +361,7 @@ function connectToHost(code: string, peer: Peer) {
   })
   connection.on('data', (data) => { if ((data as { type?: string }).type === 'ended') { room?.call?.close(); viewerView(code, 'Le partage a été arrêté par le diffuseur.', 'ended') } })
   connection.on('error', () => retryHostConnection(code, peer))
+  connection.on('close', () => retryHostConnection(code, peer))
 }
 
 function clearDiagnostics() {
