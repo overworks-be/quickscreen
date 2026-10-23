@@ -1,6 +1,6 @@
 # QuickScreen
 
-[Open QuickScreen](https://overworks-be.github.io/ios-webscreenshare/)
+[Open QuickScreen](https://overworks-be.github.io/quickscreen/)
 
 The interface is available in English, French, and Dutch. Choose a language from the selector in the top-right corner; your choice is saved in this browser. English is used by default.
 
@@ -19,7 +19,7 @@ Screen capture requires a secure origin (HTTPS or `localhost`). The person shari
 
 ## Deploy to GitHub Pages
 
-The build uses `/ios-webscreenshare/` as its base path. If the repository has a different name, update `base` in `vite.config.ts` to `/REPOSITORY-NAME/`. In **Settings → Pages**, select **GitHub Actions** as the source. Then push to `main`; the `.github/workflows/deploy.yml` workflow builds and deploys the site automatically.
+The build uses `/quickscreen/` as its base path. If the repository has a different name, update `base` in `vite.config.ts` to `/REPOSITORY-NAME/`. In **Settings → Pages**, select **GitHub Actions** as the source. Then push to `main`; the `.github/workflows/deploy.yml` workflow builds and deploys the site automatically.
 
 ## Presenter TURN configuration
 
