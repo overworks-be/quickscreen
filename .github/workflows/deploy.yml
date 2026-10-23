@@ -27,6 +27,7 @@ jobs:
       - run: npm run build
         env:
           VITE_WEBRTC_FORCE_RELAY: ${{ vars.VITE_WEBRTC_FORCE_RELAY || 'false' }}
+          VITE_OVERWORKS_URL: ${{ vars.VITE_OVERWORKS_URL || 'https://www.overworks.be/' }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

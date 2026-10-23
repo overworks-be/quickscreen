@@ -15,6 +15,8 @@ npm run dev
 
 Copy `.env.example` to `.env.local` if you want to enable relay-only diagnostics with `VITE_WEBRTC_FORCE_RELAY=true`.
 
+The footer links to Overworks at `https://www.overworks.be/` by default. Override it with `VITE_OVERWORKS_URL` in `.env.local` or with a GitHub Actions repository variable for deployment.
+
 Screen capture requires a secure origin (HTTPS or `localhost`). The person sharing must explicitly approve the browser’s capture request. Viewers do not need a camera or microphone.
 
 ## Deploy to GitHub Pages
